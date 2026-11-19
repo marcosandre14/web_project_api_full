@@ -1,0 +1,30 @@
+# Dependências (recriadas via npm install)
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# Arquivos de ambiente e segredos
+.env
+.env.local
+.env.*.local
+backend/.env
+backend/.env.local
+frontend/.env
+frontend/.env.local
+
+# Logs (exigência do checklist: não versionar arquivos de log)
+*.log
+request.log
+error.log
+backend/*.log
+backend/request.log
+backend/error.log
+
+# Build de produção do front-end
+frontend/dist/
+frontend/dist-ssr/
+
+# Arquivos temporários do sistema operacional e editores
+.DS_Store
+Thumbs.db
+*.local
