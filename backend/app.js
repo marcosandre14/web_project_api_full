@@ -3,6 +3,8 @@ const express = require('express');
 // Importa o Mongoose para conectar e interagir com o MongoDB
 const mongoose = require('mongoose');
 
+// Importa os controladores de autenticação e registro de usuários
+const { login, createUser } = require('./controllers/users');
 // Importa os módulos de roteamento criados na pasta /routes
 const usersRouter = require('./routes/users');
 const cardsRouter = require('./routes/cards');
@@ -51,16 +53,20 @@ app.use((req, res, next) => {
     return res.end();
   }
 
-  next();
+  return next();
 });
 
-// Middleware temporário para simular um usuário logado (Autor do cartão)
+// Middleware temporário de usuário (substituir por auth.js
 app.use((req, res, next) => {
   req.user = {
     _id: '6abb889ed17b5d597299357f',
   };
-  next();
+  return next();
 });
+
+// Rotas públicas para login e registro de usuários
+app.post('/signin', login);
+app.post('/signup', createUser);
 
 // Monta as rotas de usuários sob o caminho base '/users'
 app.use('/users', usersRouter);

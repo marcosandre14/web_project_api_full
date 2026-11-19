@@ -1,12 +1,21 @@
-// Importa o bcryptjs para criptografar a senha do usuário antes de salvar no banco
+// Importa o bcryptjs para gerar hash e comparar senhas de forma segura
 const bcrypt = require('bcryptjs');
+// Importa o jsonwebtoken para criar o token JWT de autenticação
+const jwt = require('jsonwebtoken');
 // Importa o modelo de usuário
 const User = require('../models/user');
 
-// Códigos de status HTTP utilizados nas respostas de erro
+// Códigos de status HTTP utilizados nas respostas
 const BAD_REQUEST_ERROR_CODE = 400;
+const UNAUTHORIZED_ERROR_CODE = 401;
+const NOT_FOUND_ERROR_CODE = 404;
 const CONFLICT_ERROR_CODE = 409;
 const INTERNAL_SERVER_ERROR_CODE = 500;
+
+// Chave secreta do JWT: usa variável de ambiente ou fallback em modo de desenvolvimento
+const JWT_SECRET = process.env.NODE_ENV === 'production'
+  ? process.env.JWT_SECRET
+  : 'dev-secret-key';
 
 // Retorna todos os usuários
 const getUsers = (req, res) => {
@@ -24,7 +33,7 @@ const getUserById = (req, res) => {
   User.findById(userId)
     .orFail(() => {
       const error = new Error('Usuário não encontrado');
-      error.statusCode = 404;
+      error.statusCode = NOT_FOUND_ERROR_CODE;
       throw error;
     })
     .then((user) => res.status(200).send(user))
@@ -34,8 +43,8 @@ const getUserById = (req, res) => {
           message: 'Id de usuário inválido',
         });
       }
-      if (err.statusCode === 404) {
-        return res.status(404).send({ message: err.message });
+      if (err.statusCode === NOT_FOUND_ERROR_CODE) {
+        return res.status(NOT_FOUND_ERROR_CODE).send({ message: err.message });
       }
       return res.status(INTERNAL_SERVER_ERROR_CODE).send({
         message: 'Ocorreu um erro no servidor',
@@ -68,21 +77,75 @@ const createUser = (req, res) => {
       return res.status(201).send(userObject);
     })
     .catch((err) => {
-      // E-mail já existente no banco (erro de chave única do MongoDB)
+      // E-mail já existente no banco (erro de chave única do MongoDB) -> 409
       if (err.code === 11000) {
         return res.status(CONFLICT_ERROR_CODE).send({
           message: 'Já existe um usuário cadastrado com este e-mail',
         });
       }
 
-      // Falha de validação do schema (campos inválidos ou ausentes)
+      // Falha de validação do schema (campos inválidos ou ausentes) -> 400
       if (err.name === 'ValidationError') {
         return res.status(BAD_REQUEST_ERROR_CODE).send({
           message: 'Dados inválidos fornecidos',
         });
       }
 
-      // Erro padrão do servidor
+      // Erro padrão do servidor -> 500
+      return res.status(INTERNAL_SERVER_ERROR_CODE).send({
+        message: 'Ocorreu um erro no servidor',
+      });
+    });
+};
+
+// Autentica o usuário por e-mail e senha e retorna um JWT válido por 7 dias
+const login = (req, res) => {
+  // Obtém e-mail e senha enviados no corpo da solicitação
+  const { email, password } = req.body;
+
+  // Se faltar e-mail ou senha, retorna erro 401
+  if (!email || !password) {
+    return res.status(UNAUTHORIZED_ERROR_CODE).send({
+      message: 'E-mail ou senha incorretos',
+    });
+  }
+
+  // Busca o usuário pelo e-mail informado
+  return User.findOne({ email })
+    .then((user) => {
+      // Se não encontrar usuário com esse e-mail, retorna 401
+      if (!user) {
+        const error = new Error('E-mail ou senha incorretos');
+        error.statusCode = UNAUTHORIZED_ERROR_CODE;
+        throw error;
+      }
+
+      // Compara a senha enviada com o hash salvo no banco
+      return bcrypt.compare(password, user.password).then((isMatch) => {
+        if (!isMatch) {
+          const error = new Error('E-mail ou senha incorretos');
+          error.statusCode = UNAUTHORIZED_ERROR_CODE;
+          throw error;
+        }
+
+        // Cria o JWT contendo apenas { _id } no payload e expiração de 7 dias
+        const token = jwt.sign({ _id: user._id }, JWT_SECRET, {
+          expiresIn: '7d',
+        });
+
+        // Envia o token gerado no corpo da resposta
+        return res.status(200).send({ token });
+      });
+    })
+    .catch((err) => {
+      // Credenciais inválidas -> 401
+      if (err.statusCode === UNAUTHORIZED_ERROR_CODE) {
+        return res.status(UNAUTHORIZED_ERROR_CODE).send({
+          message: err.message,
+        });
+      }
+
+      // Erro inesperado no servidor -> 500
       return res.status(INTERNAL_SERVER_ERROR_CODE).send({
         message: 'Ocorreu um erro no servidor',
       });
@@ -100,7 +163,7 @@ const updateProfile = (req, res) => {
   )
     .orFail(() => {
       const error = new Error('Usuário não encontrado');
-      error.statusCode = 404;
+      error.statusCode = NOT_FOUND_ERROR_CODE;
       throw error;
     })
     .then((user) => res.status(200).send(user))
@@ -110,8 +173,8 @@ const updateProfile = (req, res) => {
           message: 'Dados inválidos fornecidos',
         });
       }
-      if (err.statusCode === 404) {
-        return res.status(404).send({ message: err.message });
+      if (err.statusCode === NOT_FOUND_ERROR_CODE) {
+        return res.status(NOT_FOUND_ERROR_CODE).send({ message: err.message });
       }
       return res.status(INTERNAL_SERVER_ERROR_CODE).send({
         message: 'Ocorreu um erro no servidor',
@@ -130,7 +193,7 @@ const updateAvatar = (req, res) => {
   )
     .orFail(() => {
       const error = new Error('Usuário não encontrado');
-      error.statusCode = 404;
+      error.statusCode = NOT_FOUND_ERROR_CODE;
       throw error;
     })
     .then((user) => res.status(200).send(user))
@@ -140,8 +203,8 @@ const updateAvatar = (req, res) => {
           message: 'Link de avatar inválido',
         });
       }
-      if (err.statusCode === 404) {
-        return res.status(404).send({ message: err.message });
+      if (err.statusCode === NOT_FOUND_ERROR_CODE) {
+        return res.status(NOT_FOUND_ERROR_CODE).send({ message: err.message });
       }
       return res.status(INTERNAL_SERVER_ERROR_CODE).send({
         message: 'Ocorreu um erro no servidor',
@@ -149,10 +212,12 @@ const updateAvatar = (req, res) => {
     });
 };
 
+// Exporta todos os controladores de usuários, incluindo o login
 module.exports = {
   getUsers,
   getUserById,
   createUser,
+  login,
   updateProfile,
   updateAvatar,
 };
