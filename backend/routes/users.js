@@ -1,15 +1,19 @@
 // Importa o Router do Express para definir as rotas de usuários
 const router = require('express').Router();
-// Importa apenas os controladores usados nas rotas sob '/users'
+// Importa os controladores usados nas rotas sob '/users'
 const {
   getUsers,
   getUserById,
+  getCurrentUser,
   updateProfile,
   updateAvatar,
 } = require('../controllers/users');
 
 // GET /users — retorna todos os usuários
 router.get('/', getUsers);
+
+// GET /users/me — retorna os dados do usuário autenticado atual (antes de '/:userId')
+router.get('/me', getCurrentUser);
 
 // GET /users/:userId — retorna um usuário específico pelo _id
 router.get('/:userId', getUserById);

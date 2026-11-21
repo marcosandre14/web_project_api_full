@@ -26,11 +26,37 @@ const getUsers = (req, res) => {
     }));
 };
 
-// Retorna um usuário específico pelo ID
+// Retorna um usuário específico pelo ID informado na rota
 const getUserById = (req, res) => {
   const { userId } = req.params;
 
   User.findById(userId)
+    .orFail(() => {
+      const error = new Error('Usuário não encontrado');
+      error.statusCode = NOT_FOUND_ERROR_CODE;
+      throw error;
+    })
+    .then((user) => res.status(200).send(user))
+    .catch((err) => {
+      if (err.name === 'CastError') {
+        return res.status(BAD_REQUEST_ERROR_CODE).send({
+          message: 'Id de usuário inválido',
+        });
+      }
+      if (err.statusCode === NOT_FOUND_ERROR_CODE) {
+        return res.status(NOT_FOUND_ERROR_CODE).send({ message: err.message });
+      }
+      return res.status(INTERNAL_SERVER_ERROR_CODE).send({
+        message: 'Ocorreu um erro no servidor',
+      });
+    });
+};
+
+// Retorna os dados do usuário atualmente autenticado (via req.user._id)
+const getCurrentUser = (req, res) => {
+  // Busca o usuário pelo _id armazenado no payload do JWT e exclui o campo password
+  User.findById(req.user._id)
+    .select('-password')
     .orFail(() => {
       const error = new Error('Usuário não encontrado');
       error.statusCode = NOT_FOUND_ERROR_CODE;
@@ -212,10 +238,11 @@ const updateAvatar = (req, res) => {
     });
 };
 
-// Exporta todos os controladores de usuários, incluindo o login
+// Exporta todos os controladores de usuários, incluindo getCurrentUser
 module.exports = {
   getUsers,
   getUserById,
+  getCurrentUser,
   createUser,
   login,
   updateProfile,

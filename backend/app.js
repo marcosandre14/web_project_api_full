@@ -5,6 +5,8 @@ const mongoose = require('mongoose');
 
 // Importa os controladores de autenticação e registro de usuários
 const { login, createUser } = require('./controllers/users');
+// Importa o middleware de autorização baseado em JWT
+const auth = require('./middlewares/auth');
 // Importa os módulos de roteamento criados na pasta /routes
 const usersRouter = require('./routes/users');
 const cardsRouter = require('./routes/cards');
@@ -56,21 +58,15 @@ app.use((req, res, next) => {
   return next();
 });
 
-// Middleware temporário de usuário (substituir por auth.js
-app.use((req, res, next) => {
-  req.user = {
-    _id: '6abb889ed17b5d597299357f',
-  };
-  return next();
-});
-
-// Rotas públicas para login e registro de usuários
+// Rotas públicas: não exigem token JWT
 app.post('/signin', login);
 app.post('/signup', createUser);
 
-// Monta as rotas de usuários sob o caminho base '/users'
+// rotas que exigem autorização via JWT
+app.use(auth);
+
+// Rotas protegidas de usuários e cartões
 app.use('/users', usersRouter);
-// Monta as rotas de cartões sob o caminho base '/cards'
 app.use('/cards', cardsRouter);
 
 // Middleware para capturar requisições em rotas não registradas (Erro 404)
