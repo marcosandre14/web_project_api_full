@@ -1,6 +1,7 @@
-export const BASE_URL = "https://se-register-api.en.tripleten-services.com/v1";
+// URL base do back-end (generico para desenvolvimento e produção)
+export const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
-// Função auxiliar para checar se a resposta do servidor deu certo
+// Verifica se a resposta HTTP foi bem-sucedida e converte para JSON
 const checkResponse = (res) => {
   if (res.ok) {
     return res.json();
@@ -8,21 +9,27 @@ const checkResponse = (res) => {
   return Promise.reject(`Erro: ${res.status}`);
 };
 
-// 1. Função de Cadastro (/signup)
-export const register = (email, password) => {
+// Cadastro de novo usuário (POST /signup)
+// Aceita name, about e avatar opcionais caso o formulário envie apenas email e password
+export const register = (email, password, name, about, avatar) => {
+  const body = { email, password };
+  if (name) body.name = name;
+  if (about) body.about = about;
+  if (avatar) body.avatar = avatar;
+
   return fetch(`${BASE_URL}/signup`, {
     method: "POST",
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify(body),
   }).then(checkResponse);
 };
 
-// 2. Função de Login / Autorização (/signin)
-export const authorize = (email, password) => {
-  return fetch(`${BASE_URL}/signin`, {
+// Autenticação / Login (POST /signin) — salva o JWT no localStorage e retorna { token }
+export const authorize = (email, password) =>
+  fetch(`${BASE_URL}/signin`, {
     method: "POST",
     headers: {
       Accept: "application/json",
@@ -33,15 +40,14 @@ export const authorize = (email, password) => {
     .then(checkResponse)
     .then((data) => {
       if (data.token) {
-        localStorage.setItem("jwt", data.token); // Salvamos o token de segurança no navegador
-        return data;
+        localStorage.setItem("jwt", data.token);
       }
+      return data;
     });
-};
 
-// 3. Função para checar o token caso o usuário recarregue a página (/users/me)
-export const checkToken = (token) => {
-  return fetch(`${BASE_URL}/users/me`, {
+// Valida o token salvo e busca os dados do usuário atual (GET /users/me)
+export const checkToken = (token) =>
+  fetch(`${BASE_URL}/users/me`, {
     method: "GET",
     headers: {
       Accept: "application/json",
@@ -49,4 +55,3 @@ export const checkToken = (token) => {
       Authorization: `Bearer ${token}`,
     },
   }).then(checkResponse);
-};

@@ -1,5 +1,5 @@
 // Importa o modelo de cartão para realizar operações no MongoDB
-const Card = require("../models/card");
+const Card = require('../models/card');
 
 // Constantes com os códigos de status HTTP utilizados nas respostas
 const BAD_REQUEST_ERROR_CODE = 400;
@@ -10,13 +10,11 @@ const INTERNAL_SERVER_ERROR_CODE = 500;
 // Retorna todos os cartões cadastrados, populando os dados do criador (owner)
 const getCards = (req, res) => {
   Card.find({})
-    .populate("owner")
+    .populate('owner')
     .then((cards) => res.status(200).send(cards))
-    .catch(() =>
-      res.status(INTERNAL_SERVER_ERROR_CODE).send({
-        message: "Ocorreu um erro no servidor",
-      }),
-    );
+    .catch(() => res.status(INTERNAL_SERVER_ERROR_CODE).send({
+      message: 'Ocorreu um erro no servidor',
+    }));
 };
 
 // Cria um novo cartão vinculado ao ID do usuário autenticado (req.user._id)
@@ -30,14 +28,14 @@ const createCard = (req, res) => {
     .then((card) => res.status(201).send(card))
     .catch((err) => {
       // Dados inválidos ou faltando conforme o schema de Card -> 400
-      if (err.name === "ValidationError") {
+      if (err.name === 'ValidationError') {
         return res.status(BAD_REQUEST_ERROR_CODE).send({
-          message: "Dados inválidos fornecidos",
+          message: 'Dados inválidos fornecidos',
         });
       }
       // Qualquer outro erro inesperado -> 500
       return res.status(INTERNAL_SERVER_ERROR_CODE).send({
-        message: "Ocorreu um erro no servidor",
+        message: 'Ocorreu um erro no servidor',
       });
     });
 };
@@ -49,7 +47,7 @@ const deleteCard = (req, res) => {
   Card.findById(cardId)
     .orFail(() => {
       // Dispara erro 404 caso nenhum cartão seja encontrado com o cardId informado
-      const error = new Error("Cartão não encontrado");
+      const error = new Error('Cartão não encontrado');
       error.statusCode = NOT_FOUND_ERROR_CODE;
       throw error;
     })
@@ -57,25 +55,23 @@ const deleteCard = (req, res) => {
       // Verifica se o usuário autenticado é o proprietário do cartão
       if (String(card.owner) !== String(req.user._id)) {
         const error = new Error(
-          "Você não tem permissão para excluir este cartão",
+          'Você não tem permissão para excluir este cartão',
         );
         error.statusCode = FORBIDDEN_ERROR_CODE;
         throw error;
       }
 
       // Se for o proprietário, exclui o cartão do banco e retorna 200
-      return Card.findByIdAndDelete(cardId).then((deletedCard) =>
-        res.status(200).send({
-          message: "Cartão deletado com sucesso",
-          card: deletedCard,
-        }),
-      );
+      return Card.findByIdAndDelete(cardId).then((deletedCard) => res.status(200).send({
+        message: 'Cartão deletado com sucesso',
+        card: deletedCard,
+      }));
     })
     .catch((err) => {
       // Formato de _id inválido para o ObjectId do MongoDB -> 400
-      if (err.name === "CastError") {
+      if (err.name === 'CastError') {
         return res.status(BAD_REQUEST_ERROR_CODE).send({
-          message: "Id de cartão inválido",
+          message: 'Id de cartão inválido',
         });
       }
       // Usuário não é dono do cartão -> 403
@@ -92,7 +88,7 @@ const deleteCard = (req, res) => {
       }
       // Erro padrão do servidor -> 500
       return res.status(INTERNAL_SERVER_ERROR_CODE).send({
-        message: "Ocorreu um erro no servidor",
+        message: 'Ocorreu um erro no servidor',
       });
     });
 };
@@ -105,15 +101,15 @@ const likeCard = (req, res) => {
     { new: true },
   )
     .orFail(() => {
-      const error = new Error("Cartão não encontrado");
+      const error = new Error('Cartão não encontrado');
       error.statusCode = NOT_FOUND_ERROR_CODE;
       throw error;
     })
     .then((card) => res.status(200).send(card))
     .catch((err) => {
-      if (err.name === "CastError") {
+      if (err.name === 'CastError') {
         return res.status(BAD_REQUEST_ERROR_CODE).send({
-          message: "Id de cartão inválido",
+          message: 'Id de cartão inválido',
         });
       }
       if (err.statusCode === NOT_FOUND_ERROR_CODE) {
@@ -122,7 +118,7 @@ const likeCard = (req, res) => {
         });
       }
       return res.status(INTERNAL_SERVER_ERROR_CODE).send({
-        message: "Ocorreu um erro no servidor",
+        message: 'Ocorreu um erro no servidor',
       });
     });
 };
@@ -135,15 +131,15 @@ const dislikeCard = (req, res) => {
     { new: true },
   )
     .orFail(() => {
-      const error = new Error("Cartão não encontrado");
+      const error = new Error('Cartão não encontrado');
       error.statusCode = NOT_FOUND_ERROR_CODE;
       throw error;
     })
     .then((card) => res.status(200).send(card))
     .catch((err) => {
-      if (err.name === "CastError") {
+      if (err.name === 'CastError') {
         return res.status(BAD_REQUEST_ERROR_CODE).send({
-          message: "Id de cartão inválido",
+          message: 'Id de cartão inválido',
         });
       }
       if (err.statusCode === NOT_FOUND_ERROR_CODE) {
@@ -152,7 +148,7 @@ const dislikeCard = (req, res) => {
         });
       }
       return res.status(INTERNAL_SERVER_ERROR_CODE).send({
-        message: "Ocorreu um erro no servidor",
+        message: 'Ocorreu um erro no servidor',
       });
     });
 };

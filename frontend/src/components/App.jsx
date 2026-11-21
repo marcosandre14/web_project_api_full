@@ -18,7 +18,8 @@ function App() {
   const [selectedCard, setSelectedCard] = useState(null);
   const [cards, setCards] = useState([]);
 
-  // Estados de Autenticação
+  // Estados de autenticação e token JWT
+  const [token, setToken] = useState(() => localStorage.getItem("jwt") || "");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userEmail, setUserEmail] = useState("");
   const [isInfoTooltipOpen, setIsInfoTooltipOpen] = useState(false);
@@ -26,7 +27,7 @@ function App() {
 
   const navigate = useNavigate();
 
-  // Estados de controle de abertura dos Popups (Modais)
+  // Estados de controle de abertura dos popups (modais)
   const [isEditProfilePopupOpen, setIsEditProfilePopupOpen] = useState(false);
   const [isEditAvatarPopupOpen, setIsEditAvatarPopupOpen] = useState(false);
   const [isAddPlacePopupOpen, setIsAddPlacePopupOpen] = useState(false);
@@ -34,35 +35,55 @@ function App() {
     useState(false);
   const [cardToDelete, setCardToDelete] = useState(null);
 
-  // Estado que monitora requisições assíncronas ativas para alterar os botões de submit
+  // Estado que monitora requisições assíncronas ativas para os botões de submit
   const [isLoading, setIsLoading] = useState(false);
 
-  // Verificação do token ao carregar a aplicação
+  // Mantém o token sincronizado na instância da API e no localStorage
   useEffect(() => {
-    const jwt = localStorage.getItem("jwt");
-    if (jwt) {
-      auth
-        .checkToken(jwt)
-        .then((res) => {
-          if (res && res.data) {
-            setIsLoggedIn(true);
-            setUserEmail(res.data.email);
-            navigate("/");
-          }
-        })
-        .catch((err) => {
-          console.error("Erro ao verificar token:", err);
-        });
+    api.setToken(token);
+    if (token) {
+      localStorage.setItem("jwt", token);
+    } else {
+      localStorage.removeItem("jwt");
     }
+  }, [token]);
+
+  // Verifica se há um token válido ao carregar a aplicação
+  useEffect(() => {
+    const savedToken = localStorage.getItem("jwt");
+    if (!savedToken) return;
+
+    api.setToken(savedToken);
+    auth
+      .checkToken(savedToken)
+      .then((user) => {
+        if (user && user.email) {
+          setToken(savedToken);
+          setIsLoggedIn(true);
+          setUserEmail(user.email);
+          setCurrentUser(user);
+          navigate("/");
+        }
+      })
+      .catch((err) => {
+        console.error("Erro ao verificar token:", err);
+        localStorage.removeItem("jwt");
+        api.setToken("");
+        setToken("");
+        setIsLoggedIn(false);
+      });
   }, [navigate]);
 
-  // Busca informações do perfil do usuário e cartões iniciais quando estiver logado
+  // Busca informações do perfil e cartões iniciais quando autenticado
   useEffect(() => {
-    if (isLoggedIn) {
+    if (isLoggedIn && token) {
+      api.setToken(token);
+
       api
         .getUserInfo()
         .then((userData) => {
           setCurrentUser(userData);
+          if (userData.email) setUserEmail(userData.email);
         })
         .catch((err) => {
           console.error("Erro ao carregar dados do usuário:", err);
@@ -77,12 +98,12 @@ function App() {
           console.error("Erro ao carregar os cartões iniciais:", err);
         });
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, token]);
 
-  // Função de Registro de Usuário
-  const handleRegister = (email, password) => {
+  // Função de registro de usuário
+  const handleRegister = (email, password, name, about, avatar) => {
     auth
-      .register(email, password)
+      .register(email, password, name, about, avatar)
       .then(() => {
         setIsSuccess(true);
         setIsInfoTooltipOpen(true);
@@ -95,12 +116,14 @@ function App() {
       });
   };
 
-  // Função de Login/Autorização
+  // Função de login / autorização
   const handleLogin = (email, password) => {
     auth
       .authorize(email, password)
       .then((data) => {
         if (data && data.token) {
+          api.setToken(data.token);
+          setToken(data.token);
           setIsLoggedIn(true);
           setUserEmail(email);
           navigate("/");
@@ -113,11 +136,14 @@ function App() {
       });
   };
 
-  // Função de Logout
+  // Função de logout
   const handleSignOut = () => {
     localStorage.removeItem("jwt");
+    api.setToken("");
+    setToken("");
     setIsLoggedIn(false);
     setUserEmail("");
+    setCurrentUser({});
     navigate("/signin");
   };
 
@@ -152,7 +178,7 @@ function App() {
     setCardToDelete(null);
   }
 
-  // Intercala o estado de curtidas (Like/Dislike)
+  // Intercala o estado de curtidas (like / dislike)
   async function handleCardLike(card, isLiked) {
     await api
       .changeLikeCardStatus(card._id, !isLiked)
@@ -166,7 +192,7 @@ function App() {
       .catch((error) => console.error("Erro ao atualizar curtida:", error));
   }
 
-  // Executa a deleção definitiva
+  // Executa a exclusão definitiva do cartão
   async function handleConfirmDeleteSubmit(event) {
     event.preventDefault();
     if (!cardToDelete) return;
@@ -277,7 +303,7 @@ function App() {
               }
             />
 
-            {/* Rota de Registo */}
+            {/* Rota de Registro */}
             <Route
               path='/signup'
               element={
