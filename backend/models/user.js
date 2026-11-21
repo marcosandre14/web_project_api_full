@@ -1,7 +1,7 @@
 // Importa o Mongoose para definir o esquema e o modelo de usuário
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 // Importa o módulo validator para validar formatos padrão (como e-mail)
-const validator = require('validator');
+const validator = require("validator");
 
 // Define a estrutura e as regras de validação de um documento de usuário no MongoDB
 const userSchema = new mongoose.Schema({
@@ -11,12 +11,14 @@ const userSchema = new mongoose.Schema({
     unique: true,
     validate: {
       validator: (value) => validator.isEmail(value),
-      message: 'Endereço de e-mail inválido',
+      message: "Endereço de e-mail inválido",
     },
   },
+  // select: false impede que o hash seja retornado por padrão nas consultas
   password: {
     type: String,
     required: true,
+    select: false,
   },
   name: {
     type: String,
@@ -30,18 +32,19 @@ const userSchema = new mongoose.Schema({
     minlength: 2,
     maxlength: 30,
   },
-  // URL do avatar: obrigatória e validada por expressão regular limpa (sem escapes desnecessários)
+  // URL do avatar: obrigatória e validada por expressão regular limpa
   avatar: {
     type: String,
     required: true,
     validate: {
-      validator: (v) => /https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_+.~#?&/=]*)/.test(
-        v,
-      ),
-      message: 'Link de avatar inválido',
+      validator: (v) =>
+        /https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_+.~#?&/=]*)/.test(
+          v,
+        ),
+      message: "Link de avatar inválido",
     },
   },
 });
 
 // Exporta o modelo 'user' vinculado ao userSchema
-module.exports = mongoose.model('user', userSchema);
+module.exports = mongoose.model("user", userSchema);
