@@ -1,48 +1,60 @@
-// Importa o Mongoose para definir o esquema e o modelo de cartão
-const mongoose = require('mongoose');
+const router = require('express').Router();
+const { celebrate, Joi } = require('celebrate');
+const { validateURL, objectIdValidator } = require('../middlewares/validators');
+const {
+  getCards,
+  createCard,
+  deleteCard,
+  likeCard,
+  dislikeCard,
+} = require('../controllers/cards');
 
-// Define a estrutura dos documentos de cartão no MongoDB
-const cardSchema = new mongoose.Schema({
-  // Título do cartão
-  name: {
-    type: String,
-    required: true,
-    minlength: 2,
-    maxlength: 30,
-  },
-  // Link da imagem do cartão com validação de URL sem escapes desnecessários
-  link: {
-    type: String,
-    required: true,
-    validate: {
-      validator: (v) => /https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_+.~#?&/=]*)/.test(
-        v,
-      ),
-      message: 'Link de imagem inválido',
-    },
-  },
-  // Referência ao usuário que criou o cartão
-  owner: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'user',
-    required: true,
-  },
-  // Lista de IDs de usuários que curtiram o cartão
-  likes: {
-    type: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'user',
-      },
-    ],
-    default: [],
-  },
-  // Data de criação do cartão
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-});
+// GET /cards — retorna todos os cartões
+router.get('/', getCards);
 
-// Exporta o modelo 'card' vinculado ao cardSchema
-module.exports = mongoose.model('card', cardSchema);
+// POST /cards — valida name e link (com validator.isURL) no corpo da requisição
+router.post(
+  '/',
+  celebrate({
+    body: Joi.object().keys({
+      name: Joi.string().required().min(2).max(30),
+      link: Joi.string().required().custom(validateURL),
+    }),
+  }),
+  createCard,
+);
+
+// DELETE /cards/:cardId — valida cardId nos parâmetros antes de deletar
+router.delete(
+  '/:cardId',
+  celebrate({
+    params: Joi.object().keys({
+      cardId: objectIdValidator,
+    }),
+  }),
+  deleteCard,
+);
+
+// PUT /cards/:cardId/likes — valida cardId nos parâmetros antes de curtir
+router.put(
+  '/:cardId/likes',
+  celebrate({
+    params: Joi.object().keys({
+      cardId: objectIdValidator,
+    }),
+  }),
+  likeCard,
+);
+
+// DELETE /cards/:cardId/likes — valida cardId nos parâmetros antes de remover curtida
+router.delete(
+  '/:cardId/likes',
+  celebrate({
+    params: Joi.object().keys({
+      cardId: objectIdValidator,
+    }),
+  }),
+  dislikeCard,
+);
+
+module.exports = router;

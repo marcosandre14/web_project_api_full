@@ -2,6 +2,12 @@
 const express = require('express');
 // Importa o Mongoose para conectar e interagir com o MongoDB
 const mongoose = require('mongoose');
+// Importa celebrate e Joi para validar entradas nas rotas de autenticação e cabeçalhos
+const { celebrate, Joi } = require('celebrate');
+// Importa validador customizado de URL baseado em validator.isURL
+const { validateURL } = require('./middlewares/validators');
+// Importa os middlewares de registro de solicitações e erros em JSON
+const { requestLogger, errorLogger } = require('./middlewares/logger');
 
 // Importa os controladores de autenticação e registro de usuários
 const { login, createUser } = require('./controllers/users');
@@ -30,6 +36,9 @@ mongoose
 
 // Middleware para analisar corpos de requisição em JSON
 app.use(express.json());
+
+// Registra cada solicitação recebida pela API em request.log (formato JSON)
+app.use(requestLogger);
 
 // --- Configuração do CORS ---
 const allowedCors = [
@@ -60,21 +69,57 @@ app.use((req, res, next) => {
   return next();
 });
 
-// Rotas públicas: não exigem token JWT
-app.post('/signin', login);
-app.post('/signup', createUser);
+// Rotas públicas: não exigem token JWT, mas validam o corpo da requisição
+app.post(
+  '/signin',
+  celebrate({
+    body: Joi.object().keys({
+      email: Joi.string().required().email(),
+      password: Joi.string().required(),
+    }),
+  }),
+  login,
+);
 
-// Rotas que exigem autorização via JWT
+app.post(
+  '/signup',
+  celebrate({
+    body: Joi.object().keys({
+      email: Joi.string().required().email(),
+      password: Joi.string().required(),
+      name: Joi.string().min(2).max(30),
+      about: Joi.string().min(2).max(30),
+      avatar: Joi.string().custom(validateURL),
+    }),
+  }),
+  createUser,
+);
+
+// Rotas que exigem autorização via JWT e validação do cabeçalho authorization
 app.use(auth);
+app.use(
+  celebrate({
+    headers: Joi.object()
+      .keys({
+        authorization: Joi.string().required(),
+      })
+      .unknown(true),
+  }),
+);
 
 // Rotas protegidas de usuários e cartões
 app.use('/users', usersRouter);
 app.use('/cards', cardsRouter);
 
 // Middleware para capturar requisições em rotas não registradas (Erro 404)
-app.use((req, res) => {
-  res.status(404).send({ message: 'Recurso requisitado não encontrado' });
+app.use((req, res, next) => {
+  const notFoundError = new Error('Recurso requisitado não encontrado');
+  notFoundError.statusCode = 404;
+  next(notFoundError);
 });
+
+// Registra os erros em error.log (formato JSON) antes do tratamento final
+app.use(errorLogger);
 
 // Middleware centralizado de tratamento de erros
 app.use(errorHandler);
