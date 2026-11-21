@@ -7,6 +7,8 @@ const mongoose = require('mongoose');
 const { login, createUser } = require('./controllers/users');
 // Importa o middleware de autorização baseado em JWT
 const auth = require('./middlewares/auth');
+// Importa o middleware centralizado de tratamento de erros
+const errorHandler = require('./middlewares/errorHandler');
 // Importa os módulos de roteamento criados na pasta /routes
 const usersRouter = require('./routes/users');
 const cardsRouter = require('./routes/cards');
@@ -62,7 +64,7 @@ app.use((req, res, next) => {
 app.post('/signin', login);
 app.post('/signup', createUser);
 
-// rotas que exigem autorização via JWT
+// Rotas que exigem autorização via JWT
 app.use(auth);
 
 // Rotas protegidas de usuários e cartões
@@ -73,6 +75,9 @@ app.use('/cards', cardsRouter);
 app.use((req, res) => {
   res.status(404).send({ message: 'Recurso requisitado não encontrado' });
 });
+
+// Middleware centralizado de tratamento de erros
+app.use(errorHandler);
 
 // Inicia o servidor e o coloca escutando na porta especificada
 app.listen(PORT, () => {

@@ -5,12 +5,10 @@ const jwt = require('jsonwebtoken');
 // Importa o modelo de usuário
 const User = require('../models/user');
 
-// Códigos de status HTTP utilizados nas respostas
-const BAD_REQUEST_ERROR_CODE = 400;
+// Códigos de status HTTP utilizados em erros de domínio
 const UNAUTHORIZED_ERROR_CODE = 401;
 const NOT_FOUND_ERROR_CODE = 404;
 const CONFLICT_ERROR_CODE = 409;
-const INTERNAL_SERVER_ERROR_CODE = 500;
 
 // Chave secreta do JWT: usa variável de ambiente ou fallback em modo de desenvolvimento
 const JWT_SECRET = process.env.NODE_ENV === 'production'
@@ -18,16 +16,14 @@ const JWT_SECRET = process.env.NODE_ENV === 'production'
   : 'dev-secret-key';
 
 // Retorna todos os usuários
-const getUsers = (req, res) => {
+const getUsers = (req, res, next) => {
   User.find({})
     .then((users) => res.status(200).send(users))
-    .catch(() => res.status(INTERNAL_SERVER_ERROR_CODE).send({
-      message: 'Ocorreu um erro no servidor',
-    }));
+    .catch(next);
 };
 
 // Retorna um usuário específico pelo ID informado na rota
-const getUserById = (req, res) => {
+const getUserById = (req, res, next) => {
   const { userId } = req.params;
 
   User.findById(userId)
@@ -37,23 +33,11 @@ const getUserById = (req, res) => {
       throw error;
     })
     .then((user) => res.status(200).send(user))
-    .catch((err) => {
-      if (err.name === 'CastError') {
-        return res.status(BAD_REQUEST_ERROR_CODE).send({
-          message: 'Id de usuário inválido',
-        });
-      }
-      if (err.statusCode === NOT_FOUND_ERROR_CODE) {
-        return res.status(NOT_FOUND_ERROR_CODE).send({ message: err.message });
-      }
-      return res.status(INTERNAL_SERVER_ERROR_CODE).send({
-        message: 'Ocorreu um erro no servidor',
-      });
-    });
+    .catch(next);
 };
 
 // Retorna os dados do usuário atualmente autenticado (via req.user._id)
-const getCurrentUser = (req, res) => {
+const getCurrentUser = (req, res, next) => {
   // Busca o usuário pelo _id armazenado no payload do JWT e exclui o campo password
   User.findById(req.user._id)
     .select('-password')
@@ -63,23 +47,11 @@ const getCurrentUser = (req, res) => {
       throw error;
     })
     .then((user) => res.status(200).send(user))
-    .catch((err) => {
-      if (err.name === 'CastError') {
-        return res.status(BAD_REQUEST_ERROR_CODE).send({
-          message: 'Id de usuário inválido',
-        });
-      }
-      if (err.statusCode === NOT_FOUND_ERROR_CODE) {
-        return res.status(NOT_FOUND_ERROR_CODE).send({ message: err.message });
-      }
-      return res.status(INTERNAL_SERVER_ERROR_CODE).send({
-        message: 'Ocorreu um erro no servidor',
-      });
-    });
+    .catch(next);
 };
 
 // Cria um novo usuário com senha em hash e sem retornar o campo password
-const createUser = (req, res) => {
+const createUser = (req, res, next) => {
   // Extrai os campos do corpo da solicitação
   const {
     email, password, name, about, avatar,
@@ -103,44 +75,35 @@ const createUser = (req, res) => {
       return res.status(201).send(userObject);
     })
     .catch((err) => {
-      // E-mail já existente no banco (erro de chave única do MongoDB) -> 409
+      // Personaliza a mensagem de conflito para e-mail duplicado
       if (err.code === 11000) {
-        return res.status(CONFLICT_ERROR_CODE).send({
-          message: 'Já existe um usuário cadastrado com este e-mail',
-        });
+        const conflictError = new Error(
+          'Já existe um usuário cadastrado com este e-mail',
+        );
+        conflictError.statusCode = CONFLICT_ERROR_CODE;
+        return next(conflictError);
       }
-
-      // Falha de validação do schema (campos inválidos ou ausentes) -> 400
-      if (err.name === 'ValidationError') {
-        return res.status(BAD_REQUEST_ERROR_CODE).send({
-          message: 'Dados inválidos fornecidos',
-        });
-      }
-
-      // Erro padrão do servidor -> 500
-      return res.status(INTERNAL_SERVER_ERROR_CODE).send({
-        message: 'Ocorreu um erro no servidor',
-      });
+      return next(err);
     });
 };
 
 // Autentica o usuário por e-mail e senha e retorna um JWT válido por 7 dias
-const login = (req, res) => {
+const login = (req, res, next) => {
   // Obtém e-mail e senha enviados no corpo da solicitação
   const { email, password } = req.body;
 
-  // Se faltar e-mail ou senha, retorna erro 401
+  // Se faltar e-mail ou senha, encaminha erro 401
   if (!email || !password) {
-    return res.status(UNAUTHORIZED_ERROR_CODE).send({
-      message: 'E-mail ou senha incorretos',
-    });
+    const authError = new Error('E-mail ou senha incorretos');
+    authError.statusCode = UNAUTHORIZED_ERROR_CODE;
+    return next(authError);
   }
 
   // Busca o usuário pelo e-mail incluindo explicitamente o campo password (select: false)
   return User.findOne({ email })
     .select('+password')
     .then((user) => {
-      // Se não encontrar usuário com esse e-mail, retorna 401
+      // Se não encontrar usuário com esse e-mail, lança erro 401
       if (!user) {
         const error = new Error('E-mail ou senha incorretos');
         error.statusCode = UNAUTHORIZED_ERROR_CODE;
@@ -164,23 +127,11 @@ const login = (req, res) => {
         return res.status(200).send({ token });
       });
     })
-    .catch((err) => {
-      // Credenciais inválidas -> 401
-      if (err.statusCode === UNAUTHORIZED_ERROR_CODE) {
-        return res.status(UNAUTHORIZED_ERROR_CODE).send({
-          message: err.message,
-        });
-      }
-
-      // Erro inesperado no servidor -> 500
-      return res.status(INTERNAL_SERVER_ERROR_CODE).send({
-        message: 'Ocorreu um erro no servidor',
-      });
-    });
+    .catch(next);
 };
 
 // Atualiza o perfil do usuário (name e about)
-const updateProfile = (req, res) => {
+const updateProfile = (req, res, next) => {
   const { name, about } = req.body;
 
   User.findByIdAndUpdate(
@@ -194,23 +145,11 @@ const updateProfile = (req, res) => {
       throw error;
     })
     .then((user) => res.status(200).send(user))
-    .catch((err) => {
-      if (err.name === 'ValidationError') {
-        return res.status(BAD_REQUEST_ERROR_CODE).send({
-          message: 'Dados inválidos fornecidos',
-        });
-      }
-      if (err.statusCode === NOT_FOUND_ERROR_CODE) {
-        return res.status(NOT_FOUND_ERROR_CODE).send({ message: err.message });
-      }
-      return res.status(INTERNAL_SERVER_ERROR_CODE).send({
-        message: 'Ocorreu um erro no servidor',
-      });
-    });
+    .catch(next);
 };
 
 // Atualiza o avatar do usuário
-const updateAvatar = (req, res) => {
+const updateAvatar = (req, res, next) => {
   const { avatar } = req.body;
 
   User.findByIdAndUpdate(
@@ -224,22 +163,10 @@ const updateAvatar = (req, res) => {
       throw error;
     })
     .then((user) => res.status(200).send(user))
-    .catch((err) => {
-      if (err.name === 'ValidationError') {
-        return res.status(BAD_REQUEST_ERROR_CODE).send({
-          message: 'Link de avatar inválido',
-        });
-      }
-      if (err.statusCode === NOT_FOUND_ERROR_CODE) {
-        return res.status(NOT_FOUND_ERROR_CODE).send({ message: err.message });
-      }
-      return res.status(INTERNAL_SERVER_ERROR_CODE).send({
-        message: 'Ocorreu um erro no servidor',
-      });
-    });
+    .catch(next);
 };
 
-// Exporta todos os controladores de usuários, incluindo getCurrentUser
+// Exporta todos os controladores de usuários
 module.exports = {
   getUsers,
   getUserById,

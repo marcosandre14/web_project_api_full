@@ -9,6 +9,13 @@ const JWT_SECRET = process.env.NODE_ENV === 'production'
   ? process.env.JWT_SECRET
   : 'dev-secret-key';
 
+// Cria um erro padronizado de não autorizado (401)
+const createUnauthorizedError = () => {
+  const error = new Error('Autorização necessária');
+  error.statusCode = UNAUTHORIZED_ERROR_CODE;
+  return error;
+};
+
 // Middleware de autorização que verifica o JWT enviado no cabeçalho da requisição
 const auth = (req, res, next) => {
   // Obtém o cabeçalho de autorização da requisição
@@ -16,19 +23,15 @@ const auth = (req, res, next) => {
 
   // Verifica se o cabeçalho existe e segue o padrão "Bearer <token>"
   if (!authorization || !authorization.startsWith('Bearer ')) {
-    return res.status(UNAUTHORIZED_ERROR_CODE).send({
-      message: 'Autorização necessária',
-    });
+    return next(createUnauthorizedError());
   }
 
   // Extrai apenas o token JWT removendo o prefixo "Bearer "
   const token = authorization.replace('Bearer ', '').trim();
 
-  // Se após remover "Bearer " o token estiver vazio, retorna 401
+  // Se após remover "Bearer " o token estiver vazio, encaminha erro 401
   if (!token) {
-    return res.status(UNAUTHORIZED_ERROR_CODE).send({
-      message: 'Autorização necessária',
-    });
+    return next(createUnauthorizedError());
   }
 
   let payload;
@@ -37,10 +40,8 @@ const auth = (req, res, next) => {
     // Valida o token e decodifica seu payload (ex.: { _id, iat, exp })
     payload = jwt.verify(token, JWT_SECRET);
   } catch (err) {
-    // Token inválido, malformado ou expirado -> retorna 401
-    return res.status(UNAUTHORIZED_ERROR_CODE).send({
-      message: 'Autorização necessária',
-    });
+    // Token inválido, malformado ou expirado -> encaminha erro 401
+    return next(createUnauthorizedError());
   }
 
   // Anexa o payload decodificado à requisição e passa o controle adiante
