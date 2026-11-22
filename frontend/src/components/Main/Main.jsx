@@ -62,7 +62,12 @@ export default function Main({
       <section className='cards page__section'>
         <ul className='cards__list'>
           {cards.map((card) => {
-            const isCardLiked = card.isLiked || false;
+            const isCardLiked = Array.isArray(card.likes)
+              ? card.likes.some(
+                  (likeId) =>
+                    String(likeId?._id || likeId) === String(currentUser?._id),
+                )
+              : Boolean(card.isLiked);
 
             return (
               <Card
@@ -76,7 +81,7 @@ export default function Main({
             );
           })}
         </ul>
-      </section>
+      </section>  
 
       {/* Popup para Edição de Perfil */}
       {isEditProfilePopupOpen && (
