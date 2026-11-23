@@ -1,7 +1,12 @@
+// Carrega variáveis de ambiente do arquivo .env (em desenvolvimento, ignora se não existir)
+require('dotenv').config();
+
 // Importa o framework Express para gerenciar a aplicação HTTP
 const express = require('express');
 // Importa o Mongoose para conectar e interagir com o MongoDB
 const mongoose = require('mongoose');
+// Importa o middleware oficial de CORS para habilitar requisições cross-origin
+const cors = require('cors');
 // Importa celebrate e Joi para validar entradas nas rotas de autenticação e cabeçalhos
 const { celebrate, Joi } = require('celebrate');
 // Importa validador customizado de URL baseado em validator.isURL
@@ -21,8 +26,23 @@ const cardsRouter = require('./routes/cards');
 
 // Cria uma instância da aplicação Express
 const app = express();
-// Define a porta de execução
+// Define a porta de execução a partir do ambiente ou usa 3000 como padrão
 const { PORT = 3000 } = process.env;
+
+// Lista de origens autorizadas a consumir a API pelo navegador
+const allowedCors = [
+  'https://marcos-around.duckdns.org',
+  'http://marcos-around.duckdns.org',
+  'http://localhost:3000',
+  'http://localhost:3001',
+];
+
+// Opções de configuração do middleware CORS
+const corsOptions = {
+  origin: allowedCors,
+  methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
 
 // Conecta ao servidor MongoDB local e ao banco 'aroundb'
 mongoose
@@ -34,40 +54,14 @@ mongoose
     console.error('Erro ao conectar ao MongoDB:', err);
   });
 
-// Middleware para analisar corpos de requisição em JSON
+// Middleware para analisar corpos de requisição em formato JSON
 app.use(express.json());
 
 // Registra cada solicitação recebida pela API em request.log (formato JSON)
 app.use(requestLogger);
 
-// --- Configuração do CORS ---
-const allowedCors = [
-  'https://marcos-around.duckdns.org',
-  'http://marcos-around.duckdns.org',
-  'http://localhost:3000',
-  'http://localhost:3001',
-];
-
-app.use((req, res, next) => {
-  const { origin } = req.headers;
-  const { method } = req;
-  const DEFAULT_ALLOWED_METHODS = 'GET,HEAD,PUT,PATCH,POST,DELETE';
-
-  if (allowedCors.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
-  }
-
-  if (method === 'OPTIONS') {
-    res.header('Access-Control-Allow-Methods', DEFAULT_ALLOWED_METHODS);
-    const requestHeaders = req.headers['access-control-request-headers'];
-    if (requestHeaders) {
-      res.header('Access-Control-Allow-Headers', requestHeaders);
-    }
-    return res.end();
-  }
-
-  return next();
-});
+// Habilita CORS para todas as rotas antes da definição dos endpoints
+app.use(cors(corsOptions));
 
 // Rotas públicas: não exigem token JWT, mas validam o corpo da requisição
 app.post(
@@ -95,8 +89,10 @@ app.post(
   createUser,
 );
 
-// Rotas que exigem autorização via JWT e validação do cabeçalho authorization
+// Middleware de autorização JWT: protege todas as rotas definidas abaixo
 app.use(auth);
+
+// Valida a presença do cabeçalho authorization nas rotas protegidas
 app.use(
   celebrate({
     headers: Joi.object()
@@ -111,7 +107,7 @@ app.use(
 app.use('/users', usersRouter);
 app.use('/cards', cardsRouter);
 
-// Middleware para capturar requisições em rotas não registradas (Erro 404)
+// Middleware para capturar requisições em rotas inexistentes (Erro 404)
 app.use((req, res, next) => {
   const notFoundError = new Error('Recurso requisitado não encontrado');
   notFoundError.statusCode = 404;
