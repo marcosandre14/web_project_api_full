@@ -72,6 +72,14 @@
   opacity: 0.6;
 }
 
+.card__delete-button_visible {
+  display: block;
+}
+
+.card__delete-button_hidden {
+  display: none;
+}
+
 .card__like-button_is-active {
   background-image: url("../images/like-active.svg");
 }

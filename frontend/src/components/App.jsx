@@ -198,14 +198,20 @@ function App() {
     if (!cardToDelete) return;
     setIsLoading(true);
 
-    await api
-      .deleteCard(cardToDelete._id)
-      .then(() => {
-        setCards((state) => state.filter((c) => c._id !== cardToDelete._id));
-        closeAllPopups();
-      })
-      .catch((error) => console.error("Erro ao deletar o cartão:", error))
-      .finally(() => setIsLoading(false));
+    try {
+      await api.deleteCard(cardToDelete._id);
+      setCards((state) => state.filter((c) => c._id !== cardToDelete._id));
+      closeAllPopups();
+    } catch (error) {
+      console.error("Erro ao deletar o cartão:", error);
+      // Fecha o modal de confirmação e exibe o tooltip de erro com feedback claro
+      setIsConfirmDeletePopupOpen(false);
+      setCardToDelete(null);
+      setIsSuccess(false);
+      setIsInfoTooltipOpen(true);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   // Atualiza os dados de perfil
