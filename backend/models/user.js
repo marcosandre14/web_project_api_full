@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const validator = require('validator');
 
 // URL padrão de avatar usada quando o usuário se cadastra sem informar foto
-const DEFAULT_AVATAR_URL = 'https://practicum-content.s3.us-west-1.amazonaws.com/software-engineer/around-project/avatar.jpg';
+const DEFAULT_AVATAR_URL = 'https://www.trilhaseaventuras.com.br/wp-content/uploads/2014/01/Jacques-Cousteau.jpg';
 
 // Define a estrutura e as regras de validação de um documento de usuário no MongoDB
 const userSchema = new mongoose.Schema({
@@ -21,6 +21,7 @@ const userSchema = new mongoose.Schema({
   password: {
     type: String,
     required: true,
+    minlength: 8,
     select: false,
   },
   name: {

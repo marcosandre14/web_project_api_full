@@ -24,6 +24,7 @@ function App() {
   const [userEmail, setUserEmail] = useState("");
   const [isInfoTooltipOpen, setIsInfoTooltipOpen] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [tooltipMessage, setTooltipMessage] = useState("");
 
   const navigate = useNavigate();
 
@@ -37,6 +38,13 @@ function App() {
 
   // Estado que monitora requisições assíncronas ativas para os botões de submit
   const [isLoading, setIsLoading] = useState(false);
+
+  // Exibe feedback visual de erro no modal InfoTooltip
+  const showErrorTooltip = (message) => {
+    setIsSuccess(false);
+    setTooltipMessage(message);
+    setIsInfoTooltipOpen(true);
+  };
 
   // Mantém o token sincronizado na instância da API e no localStorage
   useEffect(() => {
@@ -87,6 +95,7 @@ function App() {
         })
         .catch((err) => {
           console.error("Erro ao carregar dados do usuário:", err);
+          showErrorTooltip("Não foi possível carregar os dados do perfil.");
         });
 
       api
@@ -96,6 +105,7 @@ function App() {
         })
         .catch((err) => {
           console.error("Erro ao carregar os cartões iniciais:", err);
+          showErrorTooltip("Não foi possível carregar os cartões.");
         });
     }
   }, [isLoggedIn, token]);
@@ -106,13 +116,15 @@ function App() {
       .register(email, password, name, about, avatar)
       .then(() => {
         setIsSuccess(true);
+        setTooltipMessage("Vitória! Você se registrou com sucesso.");
         setIsInfoTooltipOpen(true);
         navigate("/signin");
       })
       .catch((err) => {
         console.error("Erro no registro:", err);
-        setIsSuccess(false);
-        setIsInfoTooltipOpen(true);
+        showErrorTooltip(
+          "Não foi possível concluir o cadastro. Verifique os dados ou tente outro e-mail.",
+        );
       });
   };
 
@@ -131,8 +143,7 @@ function App() {
       })
       .catch((err) => {
         console.error("Erro no login:", err);
-        setIsSuccess(false);
-        setIsInfoTooltipOpen(true);
+        showErrorTooltip("E-mail ou senha incorretos. Tente novamente.");
       });
   };
 
@@ -175,6 +186,7 @@ function App() {
     setIsAddPlacePopupOpen(false);
     setIsConfirmDeletePopupOpen(false);
     setIsInfoTooltipOpen(false);
+    setTooltipMessage("");
     setCardToDelete(null);
   }
 
@@ -189,7 +201,10 @@ function App() {
           ),
         );
       })
-      .catch((error) => console.error("Erro ao atualizar curtida:", error));
+      .catch((error) => {
+        console.error("Erro ao atualizar curtida:", error);
+        showErrorTooltip("Não foi possível atualizar a curtida do cartão.");
+      });
   }
 
   // Executa a exclusão definitiva do cartão
@@ -204,11 +219,9 @@ function App() {
       closeAllPopups();
     } catch (error) {
       console.error("Erro ao deletar o cartão:", error);
-      // Fecha o modal de confirmação e exibe o tooltip de erro com feedback claro
       setIsConfirmDeletePopupOpen(false);
       setCardToDelete(null);
-      setIsSuccess(false);
-      setIsInfoTooltipOpen(true);
+      showErrorTooltip("Não foi possível excluir o cartão.");
     } finally {
       setIsLoading(false);
     }
@@ -223,7 +236,10 @@ function App() {
         setCurrentUser(newData);
         closeAllPopups();
       })
-      .catch((error) => console.error("Erro ao atualizar perfil:", error))
+      .catch((error) => {
+        console.error("Erro ao atualizar perfil:", error);
+        showErrorTooltip("Não foi possível atualizar os dados do perfil.");
+      })
       .finally(() => setIsLoading(false));
   };
 
@@ -236,7 +252,10 @@ function App() {
         setCurrentUser(newData);
         closeAllPopups();
       })
-      .catch((error) => console.error("Erro ao atualizar avatar:", error))
+      .catch((error) => {
+        console.error("Erro ao atualizar avatar:", error);
+        showErrorTooltip("Não foi possível atualizar a foto de avatar.");
+      })
       .finally(() => setIsLoading(false));
   };
 
@@ -249,7 +268,10 @@ function App() {
         setCards([newCard, ...cards]);
         closeAllPopups();
       })
-      .catch((error) => console.error("Erro ao adicionar novo lugar:", error))
+      .catch((error) => {
+        console.error("Erro ao adicionar novo lugar:", error);
+        showErrorTooltip("Não foi possível adicionar o novo cartão.");
+      })
       .finally(() => setIsLoading(false));
   };
 
@@ -329,6 +351,7 @@ function App() {
             isOpen={isInfoTooltipOpen}
             onClose={closeAllPopups}
             isSuccess={isSuccess}
+            message={tooltipMessage}
           />
         </div>
       </div>

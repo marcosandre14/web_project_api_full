@@ -19,6 +19,9 @@ function Register({ onRegister }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     const { email, password } = formValue;
+    if (password.length < 8) {
+      return;
+    }
     onRegister(email, password);
   };
 
@@ -42,10 +45,11 @@ function Register({ onRegister }) {
           id='password'
           name='password'
           type='password'
-          placeholder='Senha'
+          placeholder='Senha (mínimo 8 caracteres)'
           value={formValue.password}
           onChange={handleChange}
           className='auth-input'
+          minLength={8}
           required
         />
 

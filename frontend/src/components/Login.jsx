@@ -49,6 +49,7 @@ function Login({ onLogin }) {
           value={formValue.password}
           onChange={handleChange}
           className='auth-input'
+          minLength={8}
           required
         />
 

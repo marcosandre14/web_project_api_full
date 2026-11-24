@@ -14,6 +14,8 @@ const { validateURL } = require('./middlewares/validators');
 // Importa os middlewares de registro de solicitações e erros em JSON
 const { requestLogger, errorLogger } = require('./middlewares/logger');
 
+// Importa o modelo de usuário para garantir a sincronização de índices (como email unique)
+const User = require('./models/user');
 // Importa os controladores de autenticação e registro de usuários
 const { login, createUser } = require('./controllers/users');
 // Importa o middleware de autorização baseado em JWT
@@ -28,6 +30,8 @@ const cardsRouter = require('./routes/cards');
 const app = express();
 // Define a porta de execução a partir do ambiente ou usa 3000 como padrão
 const { PORT = 3000 } = process.env;
+// URL de conexão com o banco MongoDB local
+const MONGO_URL = process.env.MONGO_URL || 'mongodb://localhost:27017/aroundb';
 
 // Lista de origens autorizadas a consumir a API pelo navegador
 const allowedCors = [
@@ -44,16 +48,6 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization'],
 };
 
-// Conecta ao servidor MongoDB local e ao banco 'aroundb'
-mongoose
-  .connect('mongodb://localhost:27017/aroundb')
-  .then(() => {
-    console.log('Conectado ao MongoDB');
-  })
-  .catch((err) => {
-    console.error('Erro ao conectar ao MongoDB:', err);
-  });
-
 // Middleware para analisar corpos de requisição em formato JSON
 app.use(express.json());
 
@@ -66,7 +60,6 @@ app.use(cors(corsOptions));
 // ============================================================================
 // Gera um erro não tratado de forma assíncrona para testar a recuperação
 // automática do processo pelo PM2.
-// ============================================================================
 
 app.get('/crash-test', () => {
   setTimeout(() => {
@@ -93,7 +86,7 @@ app.post(
   celebrate({
     body: Joi.object().keys({
       email: Joi.string().required().email(),
-      password: Joi.string().required(),
+      password: Joi.string().required().min(8),
       name: Joi.string().min(2).max(30),
       about: Joi.string().min(2).max(30),
       avatar: Joi.string().custom(validateURL),
@@ -133,7 +126,20 @@ app.use(errorLogger);
 // Middleware centralizado de tratamento de erros
 app.use(errorHandler);
 
-// Inicia o servidor e o coloca escutando na porta especificada
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
-});
+// Conecta ao MongoDB, sincroniza os índices antes de aceitar requisições
+// e só então inicia o servidor HTTP
+mongoose
+  .connect(MONGO_URL)
+  .then(async () => {
+    console.log('Conectado ao MongoDB');
+    await User.syncIndexes();
+    console.log('Índices do modelo User sincronizados');
+
+    app.listen(PORT, () => {
+      console.log(`Servidor rodando na porta ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error('Erro ao conectar ao MongoDB ou sincronizar índices:', err);
+    process.exit(1);
+  });

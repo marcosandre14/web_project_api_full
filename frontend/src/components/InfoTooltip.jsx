@@ -3,8 +3,12 @@ import Popup from "./Popup/Popup";
 import successIcon from "../images/success-icon.svg";
 import errorIcon from "../images/error-icon.svg";
 
-export default function InfoTooltip({ isOpen, onClose, isSuccess }) {
+export default function InfoTooltip({ isOpen, onClose, isSuccess, message }) {
   if (!isOpen) return null;
+
+  const defaultMessage = isSuccess
+    ? "Vitória! Você se registrou com sucesso."
+    : "Ops, algo deu errado! Por favor, tente novamente.";
 
   return (
     <Popup onClose={onClose}>
@@ -32,9 +36,7 @@ export default function InfoTooltip({ isOpen, onClose, isSuccess }) {
             margin: 0,
           }}
         >
-          {isSuccess
-            ? "Vitória! Você se registrou com sucesso."
-            : "Ops, algo deu errado! Por favor, tente novamente."}
+          {message || defaultMessage}
         </h2>
       </div>
     </Popup>
