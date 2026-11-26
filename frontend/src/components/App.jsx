@@ -79,6 +79,7 @@ function App() {
         api.setToken("");
         setToken("");
         setIsLoggedIn(false);
+        showErrorTooltip("Sua sessão expirou. Faça login novamente.");
       });
   }, [navigate]);
 

@@ -1,4 +1,4 @@
-// Carrega variáveis de ambiente do arquivo .env (em desenvolvimento, ignora se não existir)
+// Carrega variáveis de ambiente do arquivo .env
 require('dotenv').config();
 
 // Importa o framework Express para gerenciar a aplicação HTTP
@@ -56,18 +56,6 @@ app.use(requestLogger);
 
 // Habilita CORS para todas as rotas antes da definição dos endpoints
 app.use(cors(corsOptions));
-
-// ============================================================================
-// Gera um erro não tratado de forma assíncrona para testar a recuperação
-// automática do processo pelo PM2.
-
-app.get('/crash-test', () => {
-  setTimeout(() => {
-    throw new Error('O servidor travará agora');
-  }, 0);
-});
-
-// ============================================================================
 
 // Rotas públicas: não exigem token JWT, mas validam o corpo da requisição
 app.post(
